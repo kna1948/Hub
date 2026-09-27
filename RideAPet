@@ -497,7 +497,6 @@ task.spawn(function()
 					
 					if eggPart and eggPart:IsA("BasePart") then
   						local rareInfo, _, _ = getEggInfo(bestEgg)
-  						local targetPos = eggPart.CFrame + Vector3.new(0, 2, 0)
 
  						-- Nếu là Volcanic thì lướt qua trạm check trước rồi mới tới trứng
  						if rareInfo == "Volcanic" or bestEgg.Name:lower():find("volcanic") then
@@ -511,8 +510,7 @@ task.spawn(function()
 						
 						-- BƯỚC 2: Nhặt trứng
 						if instantPickupEnabled then
-							triggerPickup(bestEgg)
-							task.wait(0.5)
+							triggerPickup(eggPart.CFrame + Vector3.new(0, 2, 0))
 						else
 							triggerPickup(bestEgg)
 							task.wait(0.7)
