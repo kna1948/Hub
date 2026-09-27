@@ -524,12 +524,12 @@ end)
 toggleEspBtn.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
 	if espEnabled then
-		toggleEspBtn.Text = "ESP Render: ON"
+		toggleEspBtn.Text = "ESP Egg: ON"
 		toggleEspBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
 		toggleEspBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
 		enableESPFeature()
 	else
-		toggleEspBtn.Text = "ESP Render: OFF"
+		toggleEspBtn.Text = "ESP Egg: OFF"
 		toggleEspBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 		toggleEspBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 		disableESPFeature()
@@ -552,11 +552,11 @@ end)
 toggleFarmBtn.MouseButton1Click:Connect(function()
 	autoFarmEnabled = not autoFarmEnabled
 	if autoFarmEnabled then
-		toggleFarmBtn.Text = "Auto Routine: ON"
+		toggleFarmBtn.Text = "Auto Go Egg: ON"
 		toggleFarmBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
 		toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
 	else
-		toggleFarmBtn.Text = "Auto Routine: OFF"
+		toggleFarmBtn.Text = "Auto Go Egg: OFF"
 		toggleFarmBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
 		toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 	end
