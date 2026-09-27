@@ -1,0 +1,577 @@
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local renderedEggsFolder = Workspace:FindFirstChild("RenderedEggs")
+local eggSpawnsFolder = Workspace:FindFirstChild("EggSpawns") or Workspace:FindFirstChild("eggSpawn")
+
+local espEnabled = false
+local instantPickupEnabled = false
+local autoFarmEnabled = false
+local activeESPs = {}
+local connections = {}
+
+-- Cache danh sách trứng đang có mặt trong game (Temp Storage)
+local activeEggsCache = {}
+
+-- Trạng thái bộ lọc độ hiếm
+local filterToggles = {
+	Ethereal = true,
+	Divine = true,
+	Mythic = false,
+	Legendary = false,
+	Epic = false,
+	Rare = false,
+	Common = false
+}
+
+-- Bảng gán điểm ưu tiên độ hiếm
+local rarityWeights = {
+	Ethereal = 7,
+	Divine = 6,
+	Mythic = 5,
+	Legendary = 4,
+	Epic = 3,
+	Rare = 2,
+	Common = 1
+}
+
+-- 1. GIAO DIỆN HUB
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SystemConfigUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 220, 0, 410)
+mainFrame.Position = UDim2.new(0.02, 0, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 4)
+uiCorner.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 28)
+titleLabel.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+titleLabel.Text = "		Ride An Pet Hub v1.9"
+titleLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
+titleLabel.TextSize = 11
+titleLabel.Font = Enum.Font.Code
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 4)
+titleCorner.Parent = titleLabel
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 20, 0, 20)
+closeBtn.Position = UDim2.new(1, -24, 0, 4)
+closeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+closeBtn.Text = "-"
+closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeBtn.TextSize = 11
+closeBtn.Font = Enum.Font.Code
+closeBtn.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 3)
+closeCorner.Parent = closeBtn
+
+-- Nút bật ESP
+local toggleEspBtn = Instance.new("TextButton")
+toggleEspBtn.Size = UDim2.new(0, 200, 0, 26)
+toggleEspBtn.Position = UDim2.new(0.5, -100, 0, 38)
+toggleEspBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+toggleEspBtn.Text = "ESP Egg: OFF"
+toggleEspBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+toggleEspBtn.TextSize = 10
+toggleEspBtn.Font = Enum.Font.Code
+toggleEspBtn.Parent = mainFrame
+
+local btnCorner1 = Instance.new("UICorner")
+btnCorner1.CornerRadius = UDim.new(0, 3)
+btnCorner1.Parent = toggleEspBtn
+
+-- Nút bật Instant Pickup (Nằm riêng ngay dưới ESP)
+local toggleInstantBtn = Instance.new("TextButton")
+toggleInstantBtn.Size = UDim2.new(0, 200, 0, 26)
+toggleInstantBtn.Position = UDim2.new(0.5, -100, 0, 70)
+toggleInstantBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+toggleInstantBtn.Text = "Instant Pickup: OFF"
+toggleInstantBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+toggleInstantBtn.TextSize = 10
+toggleInstantBtn.Font = Enum.Font.Code
+toggleInstantBtn.Parent = mainFrame
+
+local btnCornerInstant = Instance.new("UICorner")
+btnCornerInstant.CornerRadius = UDim.new(0, 3)
+btnCornerInstant.Parent = toggleInstantBtn
+
+-- Nút bật Auto Farm
+local toggleFarmBtn = Instance.new("TextButton")
+toggleFarmBtn.Size = UDim2.new(0, 200, 0, 26)
+toggleFarmBtn.Position = UDim2.new(0.5, -100, 0, 102)
+toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+toggleFarmBtn.Text = "Auto Go Egg: OFF"
+toggleFarmBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+toggleFarmBtn.TextSize = 10
+toggleFarmBtn.Font = Enum.Font.Code
+toggleFarmBtn.Parent = mainFrame
+
+local btnCorner2 = Instance.new("UICorner")
+btnCorner2.CornerRadius = UDim.new(0, 3)
+btnCorner2.Parent = toggleFarmBtn
+
+-- Khung danh sách lọc độ hiếm
+local filterContainer = Instance.new("ScrollingFrame")
+filterContainer.Size = UDim2.new(0, 200, 0, 235)
+filterContainer.Position = UDim2.new(0.5, -100, 0, 136)
+filterContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+filterContainer.BorderSizePixel = 0
+filterContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+filterContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+filterContainer.Parent = mainFrame
+
+local filterCorner = Instance.new("UICorner")
+filterCorner.CornerRadius = UDim.new(0, 3)
+filterCorner.Parent = filterContainer
+
+local uiListLayout = Instance.new("UIListLayout")
+uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+uiListLayout.Padding = UDim.new(0, 4)
+uiListLayout.Parent = filterContainer
+
+local function createFilterToggle(name, defaultState, layoutOrder)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -4, 0, 24)
+	btn.BackgroundColor3 = defaultState and Color3.fromRGB(40, 70, 40) or Color3.fromRGB(45, 45, 45)
+	btn.Text = "Filter [" .. name .. "]: " .. (defaultState and "ON" or "OFF")
+	btn.TextColor3 = defaultState and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(140, 140, 140)
+	btn.TextSize = 10
+	btn.Font = Enum.Font.Code
+	btn.LayoutOrder = layoutOrder
+	btn.Parent = filterContainer
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 3)
+	corner.Parent = btn
+	
+	btn.MouseButton1Click:Connect(function()
+		filterToggles[name] = not filterToggles[name]
+		if filterToggles[name] then
+			btn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+			btn.Text = "Filter [" .. name .. "]: ON"
+			btn.TextColor3 = Color3.fromRGB(150, 255, 150)
+		else
+			btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+			btn.Text = "Filter [" .. name .. "]: OFF"
+			btn.TextColor3 = Color3.fromRGB(140, 140, 140)
+		end
+	end)
+end
+
+createFilterToggle("Ethereal", true, 1)
+createFilterToggle("Divine", true, 2)
+createFilterToggle("Mythic", false, 3)
+createFilterToggle("Legendary", false, 4)
+createFilterToggle("Epic", false, 5)
+createFilterToggle("Rare", false, 6)
+createFilterToggle("Common", false, 7)
+
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, 0, 0, 16)
+infoLabel.Position = UDim2.new(0, 0, 1, -16)
+infoLabel.BackgroundTransparency = 1
+infoLabel.Text = "[Insert] Hide/Show Panel"
+infoLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+infoLabel.TextSize = 9
+infoLabel.Font = Enum.Font.Code
+infoLabel.Parent = mainFrame
+
+
+-- 2. HÀM LẤY NHÂN VẬT AN TOÀN
+local function getCharacter()
+	return LocalPlayer.Character
+end
+
+
+-- 3. HÀM HỖ TRỢ QUY ĐỔI SỐ LUCK CÓ HẬU TỐ (T > B > M > K > Không đuôi)
+local function parseLuckValue(luckStr)
+	if not luckStr then return 0 end
+	
+	-- Tìm số (có thể chứa dấu chấm hoặc phẩy thập phân, ví dụ: 1.5B)
+	local numPart, suffix = luckStr:match("(%d+%.?%d*)%s*([TBMKtbmk]?)")
+	local numberVal = tonumber(numPart) or 0
+	
+	if suffix then
+		suffix = suffix:upper()
+		if suffix == "T" then
+			numberVal = numberVal * 1_000_000_000_000
+		elseif suffix == "B" then
+			numberVal = numberVal * 1_000_000_000
+		elseif suffix == "M" then
+			numberVal = numberVal * 1_000_000
+		elseif suffix == "K" then
+			numberVal = numberVal * 1_000
+		end
+	end
+	
+	return numberVal
+end
+
+
+-- 4. ĐỌC THÔNG TIN TRỨNG & LUCK (CHUẨN HÓA SỐ LIỆU)
+local function getEggInfo(egg)
+	local rareInfo = "Common"
+	if eggSpawnsFolder then
+		local eggPos = Vector3.new(0,0,0)
+		if egg:IsA("Model") then
+			local primary = egg.PrimaryPart or egg:FindFirstChildWhichIsA("BasePart")
+			if primary then eggPos = primary.Position end
+		elseif egg:IsA("BasePart") then
+			eggPos = egg.Position
+		end
+		
+		local shortestDistance = 15
+		for _, spawnObj in ipairs(eggSpawnsFolder:GetChildren()) do
+			local spawnPart = nil
+			if spawnObj:IsA("Model") then
+				spawnPart = spawnObj.PrimaryPart or spawnObj:FindFirstChildWhichIsA("BasePart")
+			elseif spawnObj:IsA("BasePart") then
+				spawnPart = spawnObj
+			end
+			
+			if spawnPart then
+				local dist = (spawnPart.Position - eggPos).Magnitude
+				if dist < shortestDistance then
+					shortestDistance = dist
+					rareInfo = spawnObj.Name
+				end
+			end
+		end
+	end
+
+	local luckValueNum = 0
+	local luckValueStr = "0"
+	
+	local targetContainer = egg:FindFirstChild("Handle") or egg:FindFirstChild("RootPart")
+	if targetContainer then
+		local eggLuckFolder = targetContainer:FindFirstChild("EggLuck")
+		if eggLuckFolder then
+			local luckObj = eggLuckFolder:FindFirstChild("Luck")
+			if luckObj and luckObj:IsA("TextLabel") then
+				luckValueStr = luckObj.Text
+				luckValueNum = parseLuckValue(luckValueStr)
+			else
+				for _, child in ipairs(eggLuckFolder:GetChildren()) do
+					if child:IsA("TextLabel") and child.Text ~= "" then
+						luckValueStr = child.Text
+						luckValueNum = parseLuckValue(luckValueStr)
+						break
+					end
+				end
+			end
+		end
+	end
+
+	return rareInfo, luckValueStr, luckValueNum
+end
+
+
+-- 5. HỆ THỐNG CACHE TRỨNG (LƯU TEMP, THÊM/XÓA TỰ ĐỘNG)
+local function initEggCache()
+	activeEggsCache = {}
+	if not renderedEggsFolder then return end
+	
+	for _, egg in ipairs(renderedEggsFolder:GetChildren()) do
+		activeEggsCache[egg] = true
+	end
+	
+	renderedEggsFolder.ChildAdded:Connect(function(egg)
+		task.wait(0.05)
+		activeEggsCache[egg] = true
+	end)
+	
+	renderedEggsFolder.ChildRemoved:Connect(function(egg)
+		activeEggsCache[egg] = nil
+	end)
+end
+
+if renderedEggsFolder then
+	initEggCache()
+end
+
+
+-- 6. ESP FORMAT MỚI CỦA MÀY
+local function createESP(egg)
+	if activeESPs[egg] then return end
+	if not egg:IsA("Model") and not egg:IsA("BasePart") then return end
+
+	local rareInfo, luckValue = getEggInfo(egg)
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "SmartHighlight"
+	highlight.Adornee = egg
+	highlight.FillColor = Color3.fromRGB(255, 215, 0)
+	highlight.FillTransparency = 0.3
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineTransparency = 0
+	highlight.Parent = egg
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "SmartBillboard"
+	billboard.Size = UDim2.new(0, 180, 0, 45)
+	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+	billboard.AlwaysOnTop = true
+	
+	local adorneePart = egg
+	if egg:IsA("Model") then
+		adorneePart = egg.PrimaryPart or egg:FindFirstChildWhichIsA("BasePart")
+	end
+	billboard.Adornee = adorneePart
+	
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = "🥚 " .. egg.Name .. " [" .. rareInfo .. "]\nLuck: " .. luckValue
+	textLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+	textLabel.TextStrokeTransparency = 0
+	textLabel.TextSize = 11
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.Parent = billboard
+	
+	billboard.Parent = egg
+
+	activeESPs[egg] = {
+		Highlight = highlight,
+		Billboard = billboard
+	}
+end
+
+local function removeESP(egg)
+	if activeESPs[egg] then
+		if activeESPs[egg].Highlight then activeESPs[egg].Highlight:Destroy() end
+		if activeESPs[egg].Billboard then activeESPs[egg].Billboard:Destroy() end
+		activeESPs[egg] = nil
+	end
+end
+
+local function enableESPFeature()
+	if not renderedEggsFolder then return end
+	
+	for egg, _ in pairs(activeEggsCache) do
+		createESP(egg)
+	end
+	
+	local addConn = renderedEggsFolder.ChildAdded:Connect(function(egg)
+		task.wait(0.1)
+		if espEnabled then createESP(egg) end
+	end)
+	
+	local removeConn = renderedEggsFolder.ChildRemoved:Connect(function(egg)
+		removeESP(egg)
+	end)
+	
+	table.insert(connections, addConn)
+	table.insert(connections, removeConn)
+end
+
+local function disableESPFeature()
+	for _, conn in ipairs(connections) do conn:Disconnect() end
+	connections = {}
+	for egg, _ in pairs(activeESPs) do removeESP(egg) end
+end
+
+
+-- 7. TÌM PLOT CHÍNH XÁC
+local function getMyPlotPosition()
+	local plotsFolder = Workspace:FindFirstChild("Plots")
+	if not plotsFolder then return nil end
+	
+	for _, plotObj in ipairs(plotsFolder:GetChildren()) do
+		local dataFolder = plotObj:FindFirstChild("Data")
+		if dataFolder then
+			local ownerVal = dataFolder:FindFirstChild("Owner")
+			if ownerVal and (ownerVal.Value == LocalPlayer.Name or ownerVal.Value == LocalPlayer) then
+				local primary = plotObj.PrimaryPart or plotObj:FindFirstChildWhichIsA("BasePart")
+				if primary then
+					return primary.Position + Vector3.new(0, 3, 0)
+				end
+			end
+		end
+	end
+	return nil
+end
+
+
+-- 8. HÀM TWEEN & INSTANT PICKUP ĐỘC LẬP
+local function tweenTo(targetCFrame)
+	local char = getCharacter()
+	if not char then return end
+	local rootPart = char:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return end
+	
+	local distance = (rootPart.Position - targetCFrame.Position).Magnitude
+	local speed = 1000 -- 1000 stud/s
+	local timeDuration = distance / speed
+	if timeDuration < 0.02 then timeDuration = 0.02 end
+	
+	local tweenInfo = TweenInfo.new(timeDuration, Enum.EasingStyle.Linear)
+	local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
+	tween:Play()
+	task.wait(timeDuration)
+end
+
+local function triggerPickup(egg)
+	local prompt = egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+	if prompt then
+		pcall(function()
+			if instantPickupEnabled then
+				prompt.HoldDuration = 0
+			end
+			fireproximityprompt(prompt)
+		end)
+	else
+		pcall(function()
+			VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+			task.wait(0.02)
+			VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+		end)
+	end
+end
+
+
+-- 9. AUTO FARM (ƯU TIÊN ĐỘ HIẾM -> SAU ĐÓ SO SÁNH LUCK CHUẨN T > B > K)
+task.spawn(function()
+	while true do
+		task.wait(0.3)
+		if autoFarmEnabled then
+			local char = getCharacter()
+			
+			if char then
+				local bestEgg = nil
+				local bestWeight = -1
+				local maxLuckVal = -1
+				
+				for egg, _ in pairs(activeEggsCache) do
+					if egg and egg.Parent then
+						local rareInfo, _, luckNum = getEggInfo(egg)
+						
+						if filterToggles[rareInfo] == true then
+							local weight = rarityWeights[rareInfo] or 0
+							
+							-- So sánh độ ưu tiên Rarity trước, nếu bằng nhau thì so sánh giá trị số Luck thực tế (đã quy đổi T > B > K)
+							if weight > bestWeight then
+								bestWeight = weight
+								maxLuckVal = luckNum
+								bestEgg = egg
+							elseif weight == bestWeight and luckNum > maxLuckVal then
+								maxLuckVal = luckNum
+								bestEgg = egg
+							end
+						end
+					else
+						activeEggsCache[egg] = nil
+					end
+				end
+				
+				if bestEgg then
+					local eggPart = bestEgg
+					if bestEgg:IsA("Model") then
+						eggPart = bestEgg.PrimaryPart or bestEgg:FindFirstChildWhichIsA("BasePart")
+					end
+					
+					if eggPart and eggPart:IsA("BasePart") then
+						-- BƯỚC 1: Tween tới trứng
+						tweenTo(eggPart.CFrame + Vector3.new(0, 2, 0))
+						
+						-- BƯỚC 2: Nhặt trứng
+						if instantPickupEnabled then
+							triggerPickup(bestEgg)
+							task.wait(0.5)
+						else
+							triggerPickup(bestEgg)
+							task.wait(0.7)
+						end
+						
+						-- BƯỚC 3: Tween về Plot
+						local plotPos = getMyPlotPosition()
+						if plotPos then
+							tweenTo(CFrame.new(plotPos))
+							task.wait(0.4)
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+
+-- 10. SỰ KIỆN NÚT BẤM
+toggleEspBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	if espEnabled then
+		toggleEspBtn.Text = "ESP Render: ON"
+		toggleEspBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
+		toggleEspBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+		enableESPFeature()
+	else
+		toggleEspBtn.Text = "ESP Render: OFF"
+		toggleEspBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+		toggleEspBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+		disableESPFeature()
+	end
+end)
+
+toggleInstantBtn.MouseButton1Click:Connect(function()
+	instantPickupEnabled = not instantPickupEnabled
+	if instantPickupEnabled then
+		toggleInstantBtn.Text = "Instant Pickup: ON"
+		toggleInstantBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
+		toggleInstantBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+	else
+		toggleInstantBtn.Text = "Instant Pickup: OFF"
+		toggleInstantBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+		toggleInstantBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	end
+end)
+
+toggleFarmBtn.MouseButton1Click:Connect(function()
+	autoFarmEnabled = not autoFarmEnabled
+	if autoFarmEnabled then
+		toggleFarmBtn.Text = "Auto Routine: ON"
+		toggleFarmBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
+		toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+	else
+		toggleFarmBtn.Text = "Auto Routine: OFF"
+		toggleFarmBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+		toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	if espEnabled then disableESPFeature() end
+	autoFarmEnabled = false
+	screenGui:Destroy()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.Insert then
+		mainFrame.Visible = not mainFrame.Visible
+	end
+end)
+
+print("System diagnostics active.")
