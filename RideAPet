@@ -22,6 +22,7 @@ local activeEggsCache = {}
 
 -- Trạng thái bộ lọc độ hiếm
 local filterToggles = {
+	Volcanic = true,
 	Ethereal = true,
 	Divine = true,
 	Mythic = false,
@@ -33,6 +34,7 @@ local filterToggles = {
 
 -- Bảng gán điểm ưu tiên độ hiếm
 local rarityWeights = {
+	Volcanic = 8,
 	Ethereal = 7,
 	Divine = 6,
 	Mythic = 5,
@@ -181,14 +183,14 @@ local function createFilterToggle(name, defaultState, layoutOrder)
 		end
 	end)
 end
-
-createFilterToggle("Ethereal", true, 1)
-createFilterToggle("Divine", true, 2)
-createFilterToggle("Mythic", false, 3)
-createFilterToggle("Legendary", false, 4)
-createFilterToggle("Epic", false, 5)
-createFilterToggle("Rare", false, 6)
-createFilterToggle("Common", false, 7)
+createFilterToggle("Volcanic", true, 1)
+createFilterToggle("Ethereal", true, 2)
+createFilterToggle("Divine", true, 3)
+createFilterToggle("Mythic", false, 4)
+createFilterToggle("Legendary", false, 5)
+createFilterToggle("Epic", false, 6)
+createFilterToggle("Rare", false, 7)
+createFilterToggle("Common", false, 8)
 
 local infoLabel = Instance.new("TextLabel")
 infoLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -494,8 +496,17 @@ task.spawn(function()
 					end
 					
 					if eggPart and eggPart:IsA("BasePart") then
-						-- BƯỚC 1: Tween tới trứng
-						tweenTo(eggPart.CFrame + Vector3.new(0, 2, 0))
+  						local rareInfo, _, _ = getEggInfo(bestEgg)
+  						local targetPos = eggPart.CFrame + Vector3.new(0, 2, 0)
+
+ 						-- Nếu là Volcanic thì lướt qua trạm check trước rồi mới tới trứng
+ 						if rareInfo == "Volcanic" or bestEgg.Name:lower():find("volcanic") then
+     					tweenTo(CFrame.new(-4949.9, 41276.1, -3673.5))
+      					task.wait(0.1)
+  						end
+    
+   						 -- BƯỚC 1: Tween tới trứng
+					    tweenTo(targetPos)
 						
 						-- BƯỚC 2: Nhặt trứng
 						if instantPickupEnabled then
