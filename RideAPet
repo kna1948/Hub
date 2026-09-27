@@ -507,6 +507,7 @@ task.spawn(function()
     
    						 -- BƯỚC 1: Tween tới trứng
 					    tweenTo(targetPos)
+						task.wait(0.5)
 						
 						-- BƯỚC 2: Nhặt trứng
 						if instantPickupEnabled then
