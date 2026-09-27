@@ -157,9 +157,9 @@ local originalGlobalShadows = Lighting.GlobalShadows
 local originalMaxZoom = LocalPlayer.CameraMaxZoomDistance
 
 local Window = RayLib:CreateWindow({
-    Name = "Esp & Tool Hub",
+    Name = "Geral Hub",
     LoadingTitle = "Tool Hub",
-    LoadingSubtitle = "By Nuh Uh & Fixed",
+    LoadingSubtitle = "By Nuh Uh",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false,
