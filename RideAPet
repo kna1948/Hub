@@ -4,6 +4,7 @@ local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -18,6 +19,10 @@ local flyConnection = nil
 local flyParts = nil
 local activeESPs = {}
 local connections = {}
+
+-- MIN LUCK STATE
+local minLuckEnabled = false
+local minLuckValue = 0
 
 -- Cache danh sách trứng đang có mặt trong game (Temp Storage)
 local activeEggsCache = {}
@@ -53,7 +58,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = PlayerGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 220, 0, 410)
+mainFrame.Size = UDim2.new(0, 220, 0, 470)
 mainFrame.Position = UDim2.new(0.02, 0, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 mainFrame.BorderSizePixel = 0
@@ -68,7 +73,7 @@ uiCorner.Parent = mainFrame
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, 0, 0, 28)
 titleLabel.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-titleLabel.Text = "		Ride An Pet Hub v2.0"
+titleLabel.Text = "		Ride An Pet Hub v2.1"
 titleLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
 titleLabel.TextSize = 11
 titleLabel.Font = Enum.Font.Code
@@ -108,7 +113,7 @@ local btnCorner1 = Instance.new("UICorner")
 btnCorner1.CornerRadius = UDim.new(0, 3)
 btnCorner1.Parent = toggleEspBtn
 
--- Nút bật Instant Pickup (Nằm riêng ngay dưới ESP)
+-- Nút bật Instant Pickup
 local toggleInstantBtn = Instance.new("TextButton")
 toggleInstantBtn.Size = UDim2.new(0, 200, 0, 26)
 toggleInstantBtn.Position = UDim2.new(0.5, -100, 0, 70)
@@ -138,10 +143,42 @@ local btnCorner2 = Instance.new("UICorner")
 btnCorner2.CornerRadius = UDim.new(0, 3)
 btnCorner2.Parent = toggleFarmBtn
 
--- Khung danh sách lọc độ hiếm
+-- MIN LUCK: Nút ON/OFF + TextBox
+local toggleMinLuckBtn = Instance.new("TextButton")
+toggleMinLuckBtn.Size = UDim2.new(0, 96, 0, 26)
+toggleMinLuckBtn.Position = UDim2.new(0.5, -100, 0, 136)
+toggleMinLuckBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+toggleMinLuckBtn.Text = "Min Luck: OFF"
+toggleMinLuckBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+toggleMinLuckBtn.TextSize = 9
+toggleMinLuckBtn.Font = Enum.Font.Code
+toggleMinLuckBtn.Parent = mainFrame
+
+local btnCornerMinLuck = Instance.new("UICorner")
+btnCornerMinLuck.CornerRadius = UDim.new(0, 3)
+btnCornerMinLuck.Parent = toggleMinLuckBtn
+
+local minLuckInput = Instance.new("TextBox")
+minLuckInput.Size = UDim2.new(0, 100, 0, 26)
+minLuckInput.Position = UDim2.new(0.5, 0, 0, 136)
+minLuckInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+minLuckInput.Text = "1B"
+minLuckInput.PlaceholderText = "1B, 100M..."
+minLuckInput.TextColor3 = Color3.fromRGB(255, 200, 0)
+minLuckInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+minLuckInput.TextSize = 10
+minLuckInput.Font = Enum.Font.Code
+minLuckInput.ClearTextOnFocus = false
+minLuckInput.Parent = mainFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 3)
+inputCorner.Parent = minLuckInput
+
+-- Khung danh sách lọc độ hiếm (dịch xuống 30px để nhường chỗ cho Min Luck)
 local filterContainer = Instance.new("ScrollingFrame")
 filterContainer.Size = UDim2.new(0, 200, 0, 235)
-filterContainer.Position = UDim2.new(0.5, -100, 0, 136)
+filterContainer.Position = UDim2.new(0.5, -100, 0, 170)
 filterContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 filterContainer.BorderSizePixel = 0
 filterContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -215,7 +252,6 @@ end
 local function parseLuckValue(luckStr)
 	if not luckStr then return 0 end
 	
-	-- Tìm số (có thể chứa dấu chấm hoặc phẩy thập phân, ví dụ: 1.5B)
 	local numPart, suffix = luckStr:match("(%d+%.?%d*)%s*([TBMKtbmk]?)")
 	local numberVal = tonumber(numPart) or 0
 	
@@ -236,7 +272,7 @@ local function parseLuckValue(luckStr)
 end
 
 
--- 4. ĐỌC THÔNG TIN TRỨNG & LUCK (CHUẨN HÓA SỐ LIỆU)
+-- 4. ĐỌC THÔNG TIN TRỨNG & LUCK
 local function getEggInfo(egg)
 	local rareInfo = "Common"
 	if eggSpawnsFolder then
@@ -294,7 +330,7 @@ local function getEggInfo(egg)
 end
 
 
--- 5. HỆ THỐNG CACHE TRỨNG (LƯU TEMP, THÊM/XÓA TỰ ĐỘNG)
+-- 5. HỆ THỐNG CACHE TRỨNG
 local function initEggCache()
 	activeEggsCache = {}
 	if not renderedEggsFolder then return end
@@ -318,7 +354,7 @@ if renderedEggsFolder then
 end
 
 
--- 6. ESP FORMAT MỚI CỦA MÀY
+-- 6. ESP
 local function createESP(egg)
 	if activeESPs[egg] then return end
 	if not egg:IsA("Model") and not egg:IsA("BasePart") then return end
@@ -420,7 +456,7 @@ local function getMyPlotPosition()
 end
 
 
--- 8. HÀM TWEEN & INSTANT PICKUP ĐỘC LẬP
+-- 8. HÀM TWEEN & INSTANT PICKUP
 local function tweenTo(targetCFrame)
 	local char = getCharacter()
 	if not char then return end
@@ -428,7 +464,7 @@ local function tweenTo(targetCFrame)
 	if not rootPart then return end
 	
 	local distance = (rootPart.Position - targetCFrame.Position).Magnitude
-	local speed = 1000 -- 1000 stud/s
+	local speed = 1000
 	local timeDuration = distance / speed
 	if timeDuration < 0.02 then timeDuration = 0.02 end
 	
@@ -494,7 +530,8 @@ local function stopFly()
 	end
 end
 
--- 9. AUTO FARM (ƯU TIÊN ĐỘ HIẾM -> SAU ĐÓ SO SÁNH LUCK CHUẨN T > B > K)
+
+-- 9. AUTO FARM (CÓ MIN LUCK)
 task.spawn(function()
 	while true do
 		task.wait(0.3)
@@ -505,26 +542,34 @@ task.spawn(function()
 				local bestEgg = nil
 				local bestWeight = -1
 				local maxLuckVal = -1
-				local bestEggIsVolcanic = false  -- cờ true/false đi kèm bestEgg
+				local bestEggIsVolcanic = false
 				
 				for egg, _ in pairs(activeEggsCache) do
 					if egg and egg.Parent then
 						local rareInfo, _, luckNum = getEggInfo(egg)
 						
 						if filterToggles[rareInfo] == true then
-							local weight = rarityWeights[rareInfo] or 0
+							-- MIN LUCK CHECK
+							local passesMinLuck = true
+							if minLuckEnabled and luckNum < minLuckValue then
+								passesMinLuck = false
+							end
 							
-							if weight > bestWeight then
-								bestWeight = weight
-								maxLuckVal = luckNum
-								bestEgg = egg
-								bestEggIsVolcanic = (rareInfo == "Volcanic")
-									or (egg.Name and egg.Name:lower():find("volcanic") ~= nil)
-							elseif weight == bestWeight and luckNum > maxLuckVal then
-								maxLuckVal = luckNum
-								bestEgg = egg
-								bestEggIsVolcanic = (rareInfo == "Volcanic")
-									or (egg.Name and egg.Name:lower():find("volcanic") ~= nil)
+							if passesMinLuck then
+								local weight = rarityWeights[rareInfo] or 0
+								
+								if weight > bestWeight then
+									bestWeight = weight
+									maxLuckVal = luckNum
+									bestEgg = egg
+									bestEggIsVolcanic = (rareInfo == "Volcanic")
+										or (egg.Name and egg.Name:lower():find("volcanic") ~= nil)
+								elseif weight == bestWeight and luckNum > maxLuckVal then
+									maxLuckVal = luckNum
+									bestEgg = egg
+									bestEggIsVolcanic = (rareInfo == "Volcanic")
+										or (egg.Name and egg.Name:lower():find("volcanic") ~= nil)
+								end
 							end
 						end
 					else
@@ -583,6 +628,7 @@ task.spawn(function()
 	end
 end)
 
+
 -- 10. SỰ KIỆN NÚT BẤM
 toggleEspBtn.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
@@ -625,6 +671,35 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
+-- MIN LUCK: ON/OFF
+toggleMinLuckBtn.MouseButton1Click:Connect(function()
+	minLuckEnabled = not minLuckEnabled
+	if minLuckEnabled then
+		toggleMinLuckBtn.Text = "Min Luck: ON"
+		toggleMinLuckBtn.TextColor3 = Color3.fromRGB(150, 255, 150)
+		toggleMinLuckBtn.BackgroundColor3 = Color3.fromRGB(40, 70, 40)
+		minLuckValue = parseLuckValue(minLuckInput.Text)
+	else
+		toggleMinLuckBtn.Text = "Min Luck: OFF"
+		toggleMinLuckBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+		toggleMinLuckBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	end
+end)
+
+-- MIN LUCK: nhập giá trị
+minLuckInput.FocusLost:Connect(function()
+	minLuckValue = parseLuckValue(minLuckInput.Text)
+	if minLuckValue >= 1_000_000_000_000 then
+		minLuckInput.Text = string.format("%.2fT", minLuckValue / 1_000_000_000_000)
+	elseif minLuckValue >= 1_000_000_000 then
+		minLuckInput.Text = string.format("%.2fB", minLuckValue / 1_000_000_000)
+	elseif minLuckValue >= 1_000_000 then
+		minLuckInput.Text = string.format("%.2fM", minLuckValue / 1_000_000)
+	elseif minLuckValue >= 1_000 then
+		minLuckInput.Text = string.format("%.2fK", minLuckValue / 1_000)
+	end
+end)
+
 closeBtn.MouseButton1Click:Connect(function()
 	if espEnabled then disableESPFeature() end
 	autoFarmEnabled = false
@@ -637,4 +712,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
-print("System diagnostics active.")
+print("System diagnostics active. v2.1 - Min Luck added.")
