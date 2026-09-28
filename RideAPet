@@ -14,6 +14,8 @@ local eggSpawnsFolder = Workspace:FindFirstChild("EggSpawns") or Workspace:FindF
 local espEnabled = false
 local instantPickupEnabled = false
 local autoFarmEnabled = false
+local flyConnection = nil
+local flyParts = nil
 local activeESPs = {}
 local connections = {}
 
@@ -506,6 +508,7 @@ task.spawn(function()
 					if eggPart then
 						-- Nếu là Volcanic thì ghé trạm check trước
 						if bestEggIsVolcanic then
+							startFly()
 							tweenTo(CFrame.new(-4791.6, 41285.4, -3849.6))
 							tweenTo(CFrame.new(-4969.1, 41281.2, -3645.5))
 							task.wait(1.0)
@@ -515,6 +518,7 @@ task.spawn(function()
 						end
 												
 						if bestEggIsVolcanic then
+							task.wait(0.1)
 						    triggerPickup(bestEgg)
 						    task.wait(0.6)
                             tweenTo(CFrame.new(-4969.1, 41281.2, -3645.5))
@@ -522,6 +526,7 @@ task.spawn(function()
 							tweenTo(CFrame.new(-4791.6, 41285.4, -3849.6))
 							task.wait(0.6)
                         else
+							task.wait(0.1)
                             triggerPickup(bestEgg)
 						    task.wait(0.6)
 						end
@@ -530,6 +535,7 @@ task.spawn(function()
 						local plotPos = getMyPlotPosition()
 						if plotPos then
 							tweenTo(CFrame.new(plotPos))
+							stopFly()
 							task.wait(0.4)
 						end
 					end
@@ -539,6 +545,43 @@ task.spawn(function()
 	end
 end)
 
+local function startFly()
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	if flyParts then return end
+	
+	local bodyGyro = Instance.new("BodyGyro", hrp)
+	local bodyVelocity = Instance.new("BodyVelocity", hrp)
+	bodyGyro.P = 9e4
+	bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+	bodyGyro.CFrame = hrp.CFrame
+	bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	
+	flyParts = { bodyGyro = bodyGyro, bodyVelocity = bodyVelocity, hrp = hrp }
+	
+	flyConnection = RunService.RenderStepped:Connect(function()
+		if not flyParts then return end
+		local h = flyParts.hrp
+		if h and h.Parent then
+			flyParts.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+			flyParts.bodyGyro.CFrame = h.CFrame
+		end
+	end)
+end
+
+local function stopFly()
+	if flyConnection then
+		flyConnection:Disconnect()
+		flyConnection = nil
+	end
+	if flyParts then
+		if flyParts.bodyGyro then flyParts.bodyGyro:Destroy() end
+		if flyParts.bodyVelocity then flyParts.bodyVelocity:Destroy() end
+		flyParts = nil
+	end
+end
 
 -- 10. SỰ KIỆN NÚT BẤM
 toggleEspBtn.MouseButton1Click:Connect(function()
