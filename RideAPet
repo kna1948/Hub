@@ -603,6 +603,8 @@ task.spawn(function()
 						if bestEggIsVolcanic then
 							task.wait(0.1)
 						    triggerPickup(bestEgg)
+							triggerPickup(bestEgg)
+							triggerPickup(bestEgg)
 						    task.wait(0.6)
                             tweenTo(CFrame.new(-4969.1, 41281.2, -3645.5))
 							task.wait(0.3)
@@ -611,6 +613,8 @@ task.spawn(function()
                         else
 							task.wait(0.1)
                             triggerPickup(bestEgg)
+							triggerPickup(bestEgg)
+							triggerPickup(bestEgg)
 						    task.wait(0.6)
 						end
 						
