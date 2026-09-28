@@ -66,7 +66,7 @@ uiCorner.Parent = mainFrame
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, 0, 0, 28)
 titleLabel.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-titleLabel.Text = "		Ride An Pet Hub v1.9"
+titleLabel.Text = "		Ride An Pet Hub v2.0"
 titleLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
 titleLabel.TextSize = 11
 titleLabel.Font = Enum.Font.Code
@@ -506,16 +506,25 @@ task.spawn(function()
 					if eggPart then
 						-- Nếu là Volcanic thì ghé trạm check trước
 						if bestEggIsVolcanic then
-							tweenTo(CFrame.new(-4949.9, 41276.1, -3673.5))
-							task.wait(0.3)
+							tweenTo(CFrame.new(-4791.6, 41285.4, -3849.6))
+							tweenTo(CFrame.new(-4969.1, 41281.2, -3645.5))
+							task.wait(1.0)
+                            tweenTo(eggPart.CFrame + Vector3.new(0, 2, 0))
+                        else
+                            tweenTo(eggPart.CFrame + Vector3.new(0, 2, 0))
 						end
-						
-						-- BƯỚC 1: Tween tới trứng
-						tweenTo(eggPart.CFrame + Vector3.new(0, 2, 0))
 												
-						-- BƯỚC 2: Nhặt trứng
-						triggerPickup(bestEgg)
-						task.wait(0.6)
+						if bestEggIsVolcanic then
+						    triggerPickup(bestEgg)
+						    task.wait(0.6)
+                            tweenTo(CFrame.new(-4969.1, 41281.2, -3645.5))
+							task.wait(0.3)
+							tweenTo(CFrame.new(-4791.6, 41285.4, -3849.6))
+							task.wait(0.6)
+                        else
+                            triggerPickup(bestEgg)
+						    task.wait(0.6)
+						end
 						
 						-- BƯỚC 3: Tween về Plot
 						local plotPos = getMyPlotPosition()
