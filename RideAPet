@@ -466,6 +466,7 @@ task.spawn(function()
 				local bestEgg = nil
 				local bestWeight = -1
 				local maxLuckVal = -1
+				local bestEggIsVolcanic = false  -- cờ true/false đi kèm bestEgg
 				
 				for egg, _ in pairs(activeEggsCache) do
 					if egg and egg.Parent then
@@ -474,14 +475,17 @@ task.spawn(function()
 						if filterToggles[rareInfo] == true then
 							local weight = rarityWeights[rareInfo] or 0
 							
-							-- So sánh độ ưu tiên Rarity trước, nếu bằng nhau thì so sánh giá trị số Luck thực tế (đã quy đổi T > B > K)
 							if weight > bestWeight then
 								bestWeight = weight
 								maxLuckVal = luckNum
 								bestEgg = egg
+								bestEggIsVolcanic = (rareInfo == "Volcanic")
+									or (egg.Name and egg.Name:lower():find("volcanic") ~= nil)
 							elseif weight == bestWeight and luckNum > maxLuckVal then
 								maxLuckVal = luckNum
 								bestEgg = egg
+								bestEggIsVolcanic = (rareInfo == "Volcanic")
+									or (egg.Name and egg.Name:lower():find("volcanic") ~= nil)
 							end
 						end
 					else
@@ -490,31 +494,28 @@ task.spawn(function()
 				end
 				
 				if bestEgg then
-					local eggPart = bestEgg
+					local eggPart = nil
 					if bestEgg:IsA("Model") then
-						eggPart = bestEgg.PrimaryPart or bestEgg:FindFirstChildWhichIsA("BasePart")
+						eggPart = bestEgg.PrimaryPart 
+							or bestEgg:FindFirstChild("RootPart") 
+							or bestEgg:FindFirstChildWhichIsA("BasePart")
+					elseif bestEgg:IsA("BasePart") then
+						eggPart = bestEgg
 					end
 					
-					if eggPart and eggPart:IsA("BasePart") then
-  						local rareInfo, _, _ = getEggInfo(bestEgg)
-
- 						-- Nếu là Volcanic thì lướt qua trạm check trước rồi mới tới trứng
- 						if rareInfo == "Volcanic" or bestEgg.Name:lower():find("volcanic") then
-     					tweenTo(CFrame.new(-4949.9, 41276.1, -3673.5))
-      					task.wait(0.1)
-  						end
-    
-   						 -- BƯỚC 1: Tween tới trứng
-					    tweenTo(targetPos)
-						task.wait(0.5)
-						
-						-- BƯỚC 2: Nhặt trứng
-						if instantPickupEnabled then
-							triggerPickup(eggPart.CFrame + Vector3.new(0, 2, 0))
-						else
-							triggerPickup(bestEgg)
-							task.wait(0.7)
+					if eggPart then
+						-- Nếu là Volcanic thì ghé trạm check trước
+						if bestEggIsVolcanic then
+							tweenTo(CFrame.new(-4949.9, 41276.1, -3673.5))
+							task.wait(0.3)
 						end
+						
+						-- BƯỚC 1: Tween tới trứng
+						tweenTo(eggPart.CFrame + Vector3.new(0, 2, 0))
+												
+						-- BƯỚC 2: Nhặt trứng
+						triggerPickup(bestEgg)
+						task.wait(0.6)
 						
 						-- BƯỚC 3: Tween về Plot
 						local plotPos = getMyPlotPosition()
