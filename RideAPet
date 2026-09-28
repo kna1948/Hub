@@ -13,7 +13,7 @@ local renderedEggsFolder = Workspace:FindFirstChild("RenderedEggs")
 local eggSpawnsFolder = Workspace:FindFirstChild("EggSpawns") or Workspace:FindFirstChild("eggSpawn")
 
 local espEnabled = false
-local instantPickupEnabled = false
+local instantPickupEnabled = true
 local autoFarmEnabled = false
 local flyConnection = nil
 local flyParts = nil
